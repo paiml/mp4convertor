@@ -1,0 +1,119 @@
+# Pre-commit hooks configuration for mp4converter
+# Enforces A-grade TDG quality standards on every commit
+
+repos:
+  # Rust formatting and linting
+  - repo: local
+    hooks:
+      - id: cargo-fmt
+        name: Cargo fmt
+        description: Format Rust code with cargo fmt
+        entry: cargo fmt --all --
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-clippy
+        name: Cargo clippy
+        description: Lint Rust code with clippy
+        entry: cargo clippy --all-targets --all-features -- -D warnings
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-test
+        name: Cargo test
+        description: Run Rust tests
+        entry: cargo test --all-features
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-audit
+        name: Cargo audit
+        description: Security audit for Rust dependencies
+        entry: cargo audit
+        language: system
+        files: Cargo\.(toml|lock)
+        pass_filenames: false
+
+  # TDG and Quality Gates
+  - repo: local
+    hooks:
+      - id: pmat-tdg
+        name: TDG Score Check
+        description: Ensure TDG score stays above 90 (A grade)
+        entry: bash
+        language: system
+        files: '\.(rs|toml)$'
+        args:
+          - -c
+          - |
+            TDG_SCORE=$(pmat tdg . | grep -oP 'Overall Score: \K[0-9.]+' || echo "0")
+            echo "Current TDG Score: $TDG_SCORE/100"
+            if (( $(echo "$TDG_SCORE < 90" | bc -l) )); then
+              echo "❌ TDG Score ($TDG_SCORE) below A grade threshold (90)"
+              exit 1
+            fi
+            echo "✅ TDG Score ($TDG_SCORE) maintains A grade"
+
+      - id: pmat-satd
+        name: SATD Check
+        description: Ensure zero Self-Admitted Technical Debt
+        entry: bash
+        language: system
+        files: '\.(rs|toml)$'
+        args:
+          - -c
+          - |
+            SATD_COUNT=$(pmat analyze satd --path . | grep -oP 'Total violations: \K[0-9]+' || echo "0")
+            echo "SATD violations found: $SATD_COUNT"
+            if [ "$SATD_COUNT" -gt "0" ]; then
+              echo "❌ Found $SATD_COUNT SATD violations (TODO, FIXME, HACK comments)"
+              echo "Remove all technical debt markers before committing"
+              exit 1
+            fi
+            echo "✅ Zero SATD violations - excellent code quality maintained"
+
+      - id: coverage-gate
+        name: Coverage Gate (80%+)
+        description: Ensure test coverage stays above 80%
+        entry: bash
+        language: system
+        files: '\.(rs|toml)$'
+        args:
+          - -c
+          - |
+            COVERAGE=$(cargo llvm-cov --summary-only 2>/dev/null | grep "TOTAL" | grep -oP '\d+\.\d+%' | head -1 | sed 's/%//')
+            echo "Current test coverage: $COVERAGE%"
+            if (( $(echo "$COVERAGE < 80" | bc -l) )); then
+              echo "❌ Coverage ($COVERAGE%) below 80% threshold"
+              echo "Add tests to maintain A-grade quality standards"
+              exit 1
+            fi
+            echo "✅ Coverage ($COVERAGE%) exceeds 80% threshold"
+
+  # General code quality
+  - repo: pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: trailing-whitespace
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: check-case-conflict
+      - id: check-merge-conflict
+
+  # Markdown and documentation
+  - repo: pre-commit/pre-commit-hooks
+    rev: v4.6.0
+    hooks:
+      - id: check-markdown
+
+# Global settings
+default_language_version:
+  rust: system
+fail_fast: false
+minimum_pre_commit_version: "2.15.0"

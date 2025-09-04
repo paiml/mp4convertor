@@ -1,0 +1,83 @@
+# Rust artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo
+Cargo.lock
+!Cargo.toml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+.directory
+desktop.ini
+Thumbs.db
+
+# Test artifacts
+*.profraw
+coverage/
+
+# Video files
+*.mp4
+*.avi
+*.mkv
+*.mov
+
+# Temp files
+*.tmp
+.env
+
+# PII and sensitive information
+# User-specific paths and credentials
+**/config/user.toml
+**/config/local.toml
+.ssh/
+.aws/
+.credentials
+*.key
+*.pem
+*.p12
+*.pfx
+
+# Environment and local configs
+.env.local
+.env.production
+.env.development
+config.local.*
+local.properties
+
+# User data and logs that might contain PII
+user_data/
+logs/
+*.log
+*.trace
+
+# Coverage reports that might contain paths
+llvm-cov/
+tarpaulin-report.html
+
+# Editor and system files
+.cache/
+.local/
+.config/
+*~
+.#*
+\#*#
+*.orig
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+*.lnk
+ehthumbs.db
+Desktop.ini
+

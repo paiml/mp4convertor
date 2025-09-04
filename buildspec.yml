@@ -1,0 +1,36 @@
+version: 0.2
+
+phases:
+  install:
+    runtime-versions:
+      rust: latest
+    commands:
+      - apt-get update
+      - apt-get install -y ffmpeg nvidia-cuda-toolkit
+
+  pre_build:
+    commands:
+      - cargo fmt -- --check
+      - cargo clippy -- -D warnings
+      - cargo test
+
+  build:
+    commands:
+      - cargo build --release
+      - strip target/release/mp4converter
+
+  post_build:
+    commands:
+      - mv target/release/mp4converter ./mp4converter
+
+artifacts:
+  files:
+    - mp4converter
+    - README.md
+  discard-paths: yes
+
+cache:
+  paths:
+    - /root/.cargo/registry/**/*
+    - /root/.cargo/git/**/*
+    - target/**/*

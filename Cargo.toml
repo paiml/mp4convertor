@@ -1,7 +1,14 @@
 [package]
 name = "mp4converter"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
+authors = ["Noah Gift <noah.gift@gmail.com>"]
+description = "Professional video compliance system for content delivery standards with PCM audio support"
+repository = "https://github.com/paiml/mp4convertor"
+license = "MIT"
+readme = "README.md"
+keywords = ["video", "ffmpeg", "compliance", "h264", "pcm"]
+categories = ["multimedia::video", "multimedia::encoding", "command-line-utilities"]
 
 [dependencies]
 clap = { version = "4.5.24", features = ["derive"] }

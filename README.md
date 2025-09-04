@@ -13,7 +13,8 @@ Intelligent video compliance system built in Rust for professional content deliv
 - **📋 Standards Validation**: Enforces professional content delivery specifications
 - **⚡ Real-time Scoring**: 0-100 compliance scores with detailed violation reports
 - **🎯 Multi-format Support**: MP4, AVI, MOV analysis with comprehensive metadata extraction
-- **📊 Batch Reporting**: Detailed compliance summaries with actionable recommendations
+- **📊 Enhanced Reporting**: Detailed summaries with video AND audio codec distribution tracking
+- **🎬 Smart Recommendations**: Actionable fix suggestions based on content standards
 
 ### ☁️ **Google Drive Integration**
 - **🔐 OAuth2 Authentication**: Secure Google Drive API integration (demo mode)
@@ -129,17 +130,20 @@ Optimized for **professional content delivery standards** with **maximum quality
 - **Pixel Format**: YUV420p (universal compatibility)
 
 ### Audio Encoding  
-- **Codec**: AAC (Advanced Audio Coding)
-- **Bitrate**: 320 kbps (high quality)
-- **Channels**: Preserves source channel configuration
+- **Primary Codec**: PCM (pcm_s24le) - Preferred for maximum quality and DaVinci Resolve compatibility
+- **Fallback Codec**: AAC (Advanced Audio Coding) - When PCM is not suitable
+- **Sample Rate**: 48kHz for professional quality
+- **Bit Depth**: 24-bit for PCM audio
+- **Channels**: Stereo (2 channels)
 
 ### Compliance Standards
 - **Video Codec**: H.264 (AVC) with High Profile
 - **Supported Resolutions**: 1920x1080, 1280x720, 854x480 (automatic scaling)
 - **Frame Rates**: 23.976, 24, 25, 29.97, 30, 50, 60 fps
-- **Audio**: AAC-LC with 48kHz sample rate
+- **Audio**: PCM (preferred), ALAC, or AAC with 48kHz sample rate
 - **Container**: MP4 with proper metadata structure
 - **File Handling**: Non-destructive processing (originals always preserved)
+- **Filename Preservation**: Converted files maintain original names
 
 ## 🛠️ Development
 

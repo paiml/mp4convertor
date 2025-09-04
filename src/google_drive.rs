@@ -1,14 +1,14 @@
 //! Google Drive integration for cloud-based compliance auditing
-//! 
+//!
 //! This module provides functionality to:
 //! - Mock Google Drive integration for demonstration
 //! - Simulate discovering video files in Google Drive
 //! - Generate compliance reports for cloud storage
-//! 
-//! Note: This is a demonstration implementation. 
+//!
+//! Note: This is a demonstration implementation.
 //! For production use, implement actual Google Drive API integration.
 
-use crate::{VideoError, ComplianceEngine};
+use crate::{ComplianceEngine, VideoError};
 use colored::*;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
@@ -36,7 +36,7 @@ pub struct DriveComplianceReport {
     pub compliant_files: usize,
     pub non_compliant_files: usize,
     pub files_by_compliance: Vec<(DriveVideoFile, bool, u8)>, // file, is_compliant, score
-    pub errors: Vec<(String, String)>, // filename, error
+    pub errors: Vec<(String, String)>,                        // filename, error
 }
 
 impl GoogleDriveClient {
@@ -47,11 +47,16 @@ impl GoogleDriveClient {
 
         // Check if credentials file exists for demonstration
         if !credentials_path.exists() {
-            warn!("Credentials file not found: {}. Running in demo mode.", credentials_path.display());
+            warn!(
+                "Credentials file not found: {}. Running in demo mode.",
+                credentials_path.display()
+            );
         }
 
         info!("Google Drive client initialized in demo mode");
-        Ok(GoogleDriveClient { _authenticated: true })
+        Ok(GoogleDriveClient {
+            _authenticated: true,
+        })
     }
 
     /// Discover video files in Google Drive (demo implementation)
@@ -93,20 +98,28 @@ impl GoogleDriveClient {
             },
         ];
 
-        info!("Found {} video files in Google Drive (demo)", demo_files.len());
+        info!(
+            "Found {} video files in Google Drive (demo)",
+            demo_files.len()
+        );
         Ok(demo_files)
     }
 
     /// Download a file from Google Drive for analysis (demo - creates mock file)
     #[instrument(skip(self))]
     pub async fn download_file(&self, file_id: &str, local_path: &Path) -> Result<(), VideoError> {
-        info!("Downloading file {} to {} (demo mode)", file_id, local_path.display());
+        info!(
+            "Downloading file {} to {} (demo mode)",
+            file_id,
+            local_path.display()
+        );
 
         // Create a mock video file for demonstration
         let mock_video_content = b"Demo video content for compliance testing";
-        
-        tokio::fs::write(local_path, mock_video_content).await
-            .map_err(|e| VideoError::Io(e))?;
+
+        tokio::fs::write(local_path, mock_video_content)
+            .await
+            .map_err(VideoError::Io)?;
 
         // Simulate some processing time
         tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
@@ -123,12 +136,20 @@ impl GoogleDriveClient {
         drive_file: &DriveVideoFile,
         suffix: &str,
     ) -> Result<String, VideoError> {
-        info!("Uploading corrected file {} to Google Drive (demo mode)", local_path.display());
+        info!(
+            "Uploading corrected file {} to Google Drive (demo mode)",
+            local_path.display()
+        );
 
         // Generate new filename with suffix
         let original_name = &drive_file.name;
         let new_name = if let Some(dot_pos) = original_name.rfind('.') {
-            format!("{}{}.{}", &original_name[..dot_pos], suffix, &original_name[dot_pos + 1..])
+            format!(
+                "{}{}.{}",
+                &original_name[..dot_pos],
+                suffix,
+                &original_name[dot_pos + 1..]
+            )
         } else {
             format!("{}{}", original_name, suffix)
         };
@@ -139,7 +160,10 @@ impl GoogleDriveClient {
         // Generate a mock file ID
         let mock_file_id = format!("corrected_{}", drive_file.id);
 
-        info!("Successfully uploaded corrected file: {} (ID: {}) [DEMO]", new_name, mock_file_id);
+        info!(
+            "Successfully uploaded corrected file: {} (ID: {}) [DEMO]",
+            new_name, mock_file_id
+        );
         Ok(mock_file_id)
     }
 
@@ -184,7 +208,9 @@ impl GoogleDriveClient {
                 report.non_compliant_files += 1;
             }
 
-            report.files_by_compliance.push((drive_file.clone(), is_compliant, score));
+            report
+                .files_by_compliance
+                .push((drive_file.clone(), is_compliant, score));
         }
 
         info!(
@@ -198,49 +224,70 @@ impl GoogleDriveClient {
 
 impl DriveComplianceReport {
     pub fn display(&self) {
-        println!("\n{}", "☁️  Google Drive Compliance Report".bright_blue().bold());
+        println!(
+            "\n{}",
+            "☁️  Google Drive Compliance Report".bright_blue().bold()
+        );
         println!("{}", "=".repeat(65).bright_blue());
-        
+
         let compliance_rate = if self.total_files > 0 {
             (self.compliant_files as f64 / self.total_files as f64) * 100.0
         } else {
             0.0
         };
 
-        println!("📁 Total Files Analyzed: {}", self.total_files.to_string().bold());
-        println!("✅ Compliant Files: {} ({:.1}%)", 
+        println!(
+            "📁 Total Files Analyzed: {}",
+            self.total_files.to_string().bold()
+        );
+        println!(
+            "✅ Compliant Files: {} ({:.1}%)",
             self.compliant_files.to_string().green().bold(),
             compliance_rate
         );
-        println!("❌ Non-Compliant Files: {} ({:.1}%)", 
+        println!(
+            "❌ Non-Compliant Files: {} ({:.1}%)",
             self.non_compliant_files.to_string().red().bold(),
             100.0 - compliance_rate
         );
 
         if !self.errors.is_empty() {
-            println!("⚠️  Errors: {}", self.errors.len().to_string().yellow().bold());
+            println!(
+                "⚠️  Errors: {}",
+                self.errors.len().to_string().yellow().bold()
+            );
         }
 
         // Show detailed results
         if !self.files_by_compliance.is_empty() {
             println!("\n{}", "📋 Detailed Results:".bright_green().bold());
-            
+
             // Sort by compliance score (worst first)
             let mut sorted_files = self.files_by_compliance.clone();
             sorted_files.sort_by_key(|(_, _, score)| *score);
 
             for (file, is_compliant, score) in &sorted_files {
                 let status = if *is_compliant { "✅" } else { "❌" };
-                let score_color = if *score < 60 { "red" } else if *score < 80 { "yellow" } else { "green" };
-                
-                println!("  {} {} - Score: {}/100", 
+                let score_color = if *score < 60 {
+                    "red"
+                } else if *score < 80 {
+                    "yellow"
+                } else {
+                    "green"
+                };
+
+                println!(
+                    "  {} {} - Score: {}/100",
                     status,
                     file.name.clone().bold(),
                     score.to_string().color(score_color)
                 );
 
                 if let Some(size) = file.size {
-                    println!("     📦 Size: {}", humansize::format_size(size as u64, humansize::DECIMAL));
+                    println!(
+                        "     📦 Size: {}",
+                        humansize::format_size(size as u64, humansize::DECIMAL)
+                    );
                 }
 
                 if let Some(link) = &file.web_view_link {
@@ -277,14 +324,16 @@ fn generate_mock_compliance(filename: &str) -> (bool, u8) {
 }
 
 /// Check if a MIME type represents a supported video format
+#[allow(dead_code)]
 fn is_supported_video_format(mime_type: &str) -> bool {
-    matches!(mime_type, 
-        "video/mp4" | 
-        "video/avi" | 
-        "video/x-msvideo" |
-        "video/quicktime" |
-        "video/x-ms-wmv" |
-        "video/webm"
+    matches!(
+        mime_type,
+        "video/mp4"
+            | "video/avi"
+            | "video/x-msvideo"
+            | "video/quicktime"
+            | "video/x-ms-wmv"
+            | "video/webm"
     )
 }
 
@@ -299,7 +348,7 @@ mod tests {
         assert!(is_supported_video_format("video/x-msvideo"));
         assert!(is_supported_video_format("video/quicktime"));
         assert!(is_supported_video_format("video/webm"));
-        
+
         assert!(!is_supported_video_format("image/jpeg"));
         assert!(!is_supported_video_format("text/plain"));
         assert!(!is_supported_video_format("application/pdf"));
@@ -336,7 +385,7 @@ mod tests {
 
         // Test that display doesn't panic
         report.display();
-        
+
         // Add some test data
         let test_file = DriveVideoFile {
             id: "test123".to_string(),
@@ -350,7 +399,9 @@ mod tests {
         };
 
         report.files_by_compliance.push((test_file, true, 95));
-        report.errors.push(("error_file.mp4".to_string(), "Analysis failed".to_string()));
+        report
+            .errors
+            .push(("error_file.mp4".to_string(), "Analysis failed".to_string()));
 
         // Test display with data
         report.display();

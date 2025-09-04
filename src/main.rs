@@ -46,7 +46,10 @@ async fn main() -> Result<(), VideoError> {
 
     // Validate arguments
     if !args.drive && args.dir.is_none() {
-        eprintln!("{} Either --dir must be provided or --drive flag must be set", "Error:".red().bold());
+        eprintln!(
+            "{} Either --dir must be provided or --drive flag must be set",
+            "Error:".red().bold()
+        );
         std::process::exit(1);
     }
 
@@ -55,7 +58,12 @@ async fn main() -> Result<(), VideoError> {
         match process_google_drive(&args).await {
             Ok(_) => {
                 info!("Google Drive processing completed");
-                println!("\n{}", "Google Drive analysis completed successfully!".green().bold());
+                println!(
+                    "\n{}",
+                    "Google Drive analysis completed successfully!"
+                        .green()
+                        .bold()
+                );
                 Ok(())
             }
             Err(e) => {
@@ -65,7 +73,7 @@ async fn main() -> Result<(), VideoError> {
             }
         }
     } else if let Some(dir) = &args.dir {
-        // Local directory mode  
+        // Local directory mode
         match process_directory(dir, args.convert, args.verbose, args.compliance) {
             Ok(_) => {
                 info!("processing completed");
@@ -95,11 +103,16 @@ async fn process_google_drive(args: &Args) -> Result<(), VideoError> {
     let compliance_engine = ComplianceEngine::new()?;
 
     // Perform compliance audit
-    println!("{}", "🔍 Scanning Google Drive for video files...".blue().bold());
-    
-    let report = client.audit_compliance(&compliance_engine, |current, total, filename| {
-        println!("📁 Analyzing {}/{}: {}", current, total, filename);
-    }).await?;
+    println!(
+        "{}",
+        "🔍 Scanning Google Drive for video files...".blue().bold()
+    );
+
+    let report = client
+        .audit_compliance(&compliance_engine, |current, total, filename| {
+            println!("📁 Analyzing {}/{}: {}", current, total, filename);
+        })
+        .await?;
 
     // Display results
     report.display();
@@ -144,7 +157,7 @@ mod tests {
     fn test_missing_required_args() {
         let result = Args::try_parse_from(["mp4converter"]);
         assert!(result.is_ok()); // Now passes because --dir is not required when --drive can be used
-        
+
         // But dir should be None and drive should be false by default
         let args = result.unwrap();
         assert!(args.dir.is_none());

@@ -28,12 +28,12 @@ pub fn init_logging() {
 impl ContentStandards {
     pub fn load_default() -> Result<Self, VideoError> {
         info!("Loading default content delivery standards");
-        
+
         let video = VideoStandards {
             preferred_resolutions: vec![
                 "1280x720".to_string(),
                 "1920x1080".to_string(),
-                "720x1280".to_string(), // Vertical
+                "720x1280".to_string(),  // Vertical
                 "1080x1920".to_string(), // Vertical HD
             ],
             acceptable_resolutions: vec![
@@ -45,22 +45,25 @@ impl ContentStandards {
                 "1440x810".to_string(),
                 "2160x3840".to_string(), // Vertical 4K
             ],
-            preferred_codecs: vec![
-                "h264".to_string(),
-                "libx264".to_string(),
-            ],
+            preferred_codecs: vec!["h264".to_string(), "libx264".to_string()],
             preferred_frame_rates: vec![15.0, 23.976, 24.0, 25.0, 29.97, 30.0],
             bitrate_ranges: HashMap::from([
-                ("screen_capture".to_string(), BitRateRange {
-                    min_kbps: 6000,
-                    max_kbps: 8000,
-                    content_type: "Screen Capture".to_string(),
-                }),
-                ("live_action".to_string(), BitRateRange {
-                    min_kbps: 8000,
-                    max_kbps: 15000,
-                    content_type: "Live Action".to_string(),
-                }),
+                (
+                    "screen_capture".to_string(),
+                    BitRateRange {
+                        min_kbps: 6000,
+                        max_kbps: 8000,
+                        content_type: "Screen Capture".to_string(),
+                    },
+                ),
+                (
+                    "live_action".to_string(),
+                    BitRateRange {
+                        min_kbps: 8000,
+                        max_kbps: 15000,
+                        content_type: "Live Action".to_string(),
+                    },
+                ),
             ]),
             containers: vec!["mp4".to_string(), "mov".to_string()],
             unsupported_containers: vec!["mkv".to_string()],
@@ -72,16 +75,14 @@ impl ContentStandards {
             acceptable_codecs: vec!["aac".to_string()],
             sample_rates: vec![44100, 48000],
             bit_depths: vec![16, 24],
-            bitrate_ranges: HashMap::from([
-                ("aac".to_string(), 320),
-            ]),
+            bitrate_ranges: HashMap::from([("aac".to_string(), 320)]),
             channels: vec!["stereo".to_string(), "2.0".to_string()],
         };
 
         let quality = QualityStandards {
             color_spaces: vec!["rec709".to_string(), "bt709".to_string()],
             unsupported_color_spaces: vec![
-                "bt2020".to_string(), 
+                "bt2020".to_string(),
                 "dci-p3".to_string(),
                 "rec2020".to_string(),
             ],
@@ -89,7 +90,7 @@ impl ContentStandards {
             chroma_subsampling: vec!["4:2:0".to_string(), "4:2:2".to_string()],
             hdr_restrictions: vec![
                 "hdr10".to_string(),
-                "hdr10+".to_string(), 
+                "hdr10+".to_string(),
                 "dolby_vision".to_string(),
                 "hlg".to_string(),
             ],
@@ -116,13 +117,18 @@ impl ComplianceEngine {
     #[instrument(skip(self))]
     pub fn analyze_compliance(&self, metadata: &VideoMetadata) -> ComplianceResult {
         info!("Analyzing compliance for video file");
-        
+
         let mut violations = Vec::new();
         let mut recommendations = Vec::new();
         let mut score = 100u8;
 
         // Check video codec compliance
-        if !self.standards.video.preferred_codecs.contains(&metadata.codec) {
+        if !self
+            .standards
+            .video
+            .preferred_codecs
+            .contains(&metadata.codec)
+        {
             violations.push(ComplianceViolation {
                 severity: ViolationSeverity::Critical,
                 category: ViolationCategory::VideoCodec,
@@ -135,32 +141,52 @@ impl ComplianceEngine {
         }
 
         // Check resolution compliance
-        let is_preferred_res = self.standards.video.preferred_resolutions.contains(&metadata.resolution);
-        let is_acceptable_res = self.standards.video.acceptable_resolutions.contains(&metadata.resolution);
-        
+        let is_preferred_res = self
+            .standards
+            .video
+            .preferred_resolutions
+            .contains(&metadata.resolution);
+        let is_acceptable_res = self
+            .standards
+            .video
+            .acceptable_resolutions
+            .contains(&metadata.resolution);
+
         if !is_preferred_res && !is_acceptable_res {
             violations.push(ComplianceViolation {
                 severity: ViolationSeverity::Critical,
                 category: ViolationCategory::Resolution,
                 description: "Resolution not supported".to_string(),
                 current_value: metadata.resolution.clone(),
-                expected_value: format!("Preferred: {}", self.standards.video.preferred_resolutions.join(", ")),
+                expected_value: format!(
+                    "Preferred: {}",
+                    self.standards.video.preferred_resolutions.join(", ")
+                ),
             });
             score = score.saturating_sub(25);
-            recommendations.push("Resize to 1920x1080 or 1280x720 for standard content".to_string());
+            recommendations
+                .push("Resize to 1920x1080 or 1280x720 for standard content".to_string());
         } else if !is_preferred_res {
             violations.push(ComplianceViolation {
                 severity: ViolationSeverity::Warning,
                 category: ViolationCategory::Resolution,
                 description: "Resolution acceptable but not preferred".to_string(),
                 current_value: metadata.resolution.clone(),
-                expected_value: format!("Preferred: {}", self.standards.video.preferred_resolutions.join(", ")),
+                expected_value: format!(
+                    "Preferred: {}",
+                    self.standards.video.preferred_resolutions.join(", ")
+                ),
             });
             score = score.saturating_sub(10);
         }
 
         // Check container format
-        if self.standards.video.unsupported_containers.contains(&metadata.container.to_lowercase()) {
+        if self
+            .standards
+            .video
+            .unsupported_containers
+            .contains(&metadata.container.to_lowercase())
+        {
             violations.push(ComplianceViolation {
                 severity: ViolationSeverity::Critical,
                 category: ViolationCategory::Container,
@@ -173,35 +199,58 @@ impl ComplianceEngine {
         }
 
         // Check audio codec
-        if !self.standards.audio.preferred_codecs.contains(&metadata.audio_codec) && 
-           !self.standards.audio.acceptable_codecs.contains(&metadata.audio_codec) {
+        if !self
+            .standards
+            .audio
+            .preferred_codecs
+            .contains(&metadata.audio_codec)
+            && !self
+                .standards
+                .audio
+                .acceptable_codecs
+                .contains(&metadata.audio_codec)
+        {
             violations.push(ComplianceViolation {
                 severity: ViolationSeverity::Warning,
                 category: ViolationCategory::AudioCodec,
                 description: "Audio codec not in preferred or acceptable list".to_string(),
                 current_value: metadata.audio_codec.clone(),
-                expected_value: format!("Preferred: {} | Acceptable: {}", 
+                expected_value: format!(
+                    "Preferred: {} | Acceptable: {}",
                     self.standards.audio.preferred_codecs.join(", "),
-                    self.standards.audio.acceptable_codecs.join(", ")),
+                    self.standards.audio.acceptable_codecs.join(", ")
+                ),
             });
             score = score.saturating_sub(15);
             recommendations.push("Convert audio to PCM or ALAC for highest quality".to_string());
-        } else if self.standards.audio.acceptable_codecs.contains(&metadata.audio_codec) {
+        } else if self
+            .standards
+            .audio
+            .acceptable_codecs
+            .contains(&metadata.audio_codec)
+        {
             violations.push(ComplianceViolation {
                 severity: ViolationSeverity::Info,
                 category: ViolationCategory::AudioCodec,
                 description: "Audio codec is acceptable but not preferred".to_string(),
                 current_value: metadata.audio_codec.clone(),
-                expected_value: format!("Preferred: {}", self.standards.audio.preferred_codecs.join(", ")),
+                expected_value: format!(
+                    "Preferred: {}",
+                    self.standards.audio.preferred_codecs.join(", ")
+                ),
             });
             score = score.saturating_sub(5);
         }
 
         // Check HDR restrictions and unsupported color spaces
         let mut hdr_violation = false;
-        
+
         for restricted in &self.standards.quality.hdr_restrictions {
-            if metadata.color_space.to_lowercase().contains(&restricted.to_lowercase()) {
+            if metadata
+                .color_space
+                .to_lowercase()
+                .contains(&restricted.to_lowercase())
+            {
                 violations.push(ComplianceViolation {
                     severity: ViolationSeverity::Critical,
                     category: ViolationCategory::HDR,
@@ -215,11 +264,15 @@ impl ComplianceEngine {
                 break;
             }
         }
-        
+
         // Also check unsupported color spaces (like bt2020)
         if !hdr_violation {
             for unsupported in &self.standards.quality.unsupported_color_spaces {
-                if metadata.color_space.to_lowercase().contains(&unsupported.to_lowercase()) {
+                if metadata
+                    .color_space
+                    .to_lowercase()
+                    .contains(&unsupported.to_lowercase())
+                {
                     violations.push(ComplianceViolation {
                         severity: ViolationSeverity::Critical,
                         category: ViolationCategory::HDR,
@@ -234,7 +287,9 @@ impl ComplianceEngine {
             }
         }
 
-        let is_compliant = violations.iter().all(|v| matches!(v.severity, ViolationSeverity::Info));
+        let is_compliant = violations
+            .iter()
+            .all(|v| matches!(v.severity, ViolationSeverity::Info));
 
         ComplianceResult {
             is_compliant,
@@ -253,13 +308,18 @@ impl ComplianceResult {
     pub fn display(&self) {
         println!("\n{}", "📋 Compliance Analysis".bright_blue().bold());
         println!("{}", "=".repeat(60).bright_blue());
-        
+
         let status_color = if self.is_compliant { "green" } else { "red" };
         let status_icon = if self.is_compliant { "✅" } else { "❌" };
-        let status_text = if self.is_compliant { "COMPLIANT" } else { "NON-COMPLIANT" };
-        
-        println!("{} Status: {}", 
-            status_icon, 
+        let status_text = if self.is_compliant {
+            "COMPLIANT"
+        } else {
+            "NON-COMPLIANT"
+        };
+
+        println!(
+            "{} Status: {}",
+            status_icon,
             status_text.color(status_color).bold()
         );
         println!("📊 Compliance Score: {}/100", self.score.to_string().bold());
@@ -269,7 +329,7 @@ impl ComplianceResult {
             for (i, violation) in self.violations.iter().enumerate() {
                 let severity_icon = match violation.severity {
                     ViolationSeverity::Critical => "🔴",
-                    ViolationSeverity::Warning => "🟡", 
+                    ViolationSeverity::Warning => "🟡",
                     ViolationSeverity::Info => "🔵",
                 };
                 let severity_color = match violation.severity {
@@ -277,11 +337,14 @@ impl ComplianceResult {
                     ViolationSeverity::Warning => "yellow",
                     ViolationSeverity::Info => "blue",
                 };
-                
-                println!("\n{}. {} {} - {}", 
+
+                println!(
+                    "\n{}. {} {} - {}",
                     (i + 1).to_string().bold(),
                     severity_icon,
-                    format!("{:?}", violation.severity).color(severity_color).bold(),
+                    format!("{:?}", violation.severity)
+                        .color(severity_color)
+                        .bold(),
                     violation.description
                 );
                 println!("   Current: {}", violation.current_value.cyan());
@@ -624,19 +687,22 @@ pub fn analyze_video(path: &Path) -> Result<VideoMetadata, VideoError> {
         serde_json::from_slice(&output.stdout).map_err(|e| VideoError::FFmpeg(e.to_string()))?;
 
     // Find video and audio streams
-    let streams = json["streams"].as_array().ok_or_else(|| {
-        VideoError::FFmpeg("No streams found in video file".to_string())
-    })?;
-    
-    let video_stream = streams.iter()
+    let streams = json["streams"]
+        .as_array()
+        .ok_or_else(|| VideoError::FFmpeg("No streams found in video file".to_string()))?;
+
+    let video_stream = streams
+        .iter()
         .find(|stream| stream["codec_type"].as_str() == Some("video"))
         .ok_or_else(|| VideoError::FFmpeg("No video stream found".to_string()))?;
-    
-    let audio_stream = streams.iter()
+
+    let audio_stream = streams
+        .iter()
         .find(|stream| stream["codec_type"].as_str() == Some("audio"));
 
     // Extract container format from file extension
-    let container = path.extension()
+    let container = path
+        .extension()
         .and_then(|ext| ext.to_str())
         .unwrap_or("unknown")
         .to_lowercase();
@@ -671,7 +737,11 @@ pub fn analyze_video(path: &Path) -> Result<VideoMetadata, VideoError> {
                 if parts.len() == 2 {
                     let num: f64 = parts[0].parse().ok()?;
                     let den: f64 = parts[1].parse().ok()?;
-                    if den != 0.0 { Some(num / den) } else { None }
+                    if den != 0.0 {
+                        Some(num / den)
+                    } else {
+                        None
+                    }
                 } else {
                     fps.parse().ok()
                 }
@@ -705,48 +775,54 @@ pub fn analyze_video(path: &Path) -> Result<VideoMetadata, VideoError> {
 
 /// Intelligent video fixing based on compliance analysis
 pub fn fix_video_compliance(
-    input: &Path, 
-    output_dir: &Path, 
-    compliance_result: &ComplianceResult
+    input: &Path,
+    output_dir: &Path,
+    compliance_result: &ComplianceResult,
 ) -> Result<PathBuf, VideoError> {
-    info!("Starting intelligent compliance fixing for: {}", input.display());
-    
+    info!(
+        "Starting intelligent compliance fixing for: {}",
+        input.display()
+    );
+
     // Generate output filename with compliance suffix
     let output_filename = generate_compliance_output_filename(input, compliance_result);
     let output_path = output_dir.join(&output_filename);
-    
-    println!("\n{}", "🔧 Intelligent Compliance Fixing".bright_blue().bold());
+
+    println!(
+        "\n{}",
+        "🔧 Intelligent Compliance Fixing".bright_blue().bold()
+    );
     println!("Input:  {}", input.display());
     println!("Output: {}", output_path.display());
     println!("Violations to fix: {}", compliance_result.violations.len());
-    
+
     // Build FFmpeg arguments based on violations
     let mut args = vec!["-i".to_string(), input.to_str().unwrap().to_string()];
-    
+
     // Add hardware decoding if beneficial
     if should_use_hw_decode(compliance_result) {
         args.extend(["-hwaccel".to_string(), "cuda".to_string()]);
     }
-    
+
     // Video encoding settings
     let video_fixes = generate_video_fixes(compliance_result);
     args.extend(video_fixes);
-    
-    // Audio encoding settings  
+
+    // Audio encoding settings
     let audio_fixes = generate_audio_fixes(compliance_result);
     args.extend(audio_fixes);
-    
+
     // Quality preservation settings
     args.extend(["-movflags".to_string(), "+faststart".to_string()]);
-    
+
     // Output overwrite and path
     args.extend(["-y".to_string(), output_path.to_str().unwrap().to_string()]);
-    
+
     println!("FFmpeg command: ffmpeg {}", args.join(" "));
-    
+
     // Execute conversion with progress tracking
     execute_compliance_conversion(&args, compliance_result)?;
-    
+
     Ok(output_path)
 }
 
@@ -794,58 +870,85 @@ pub fn convert_video(input: &Path, h264_dir: &Path) -> Result<(), VideoError> {
 }
 
 /// Generate output filename based on compliance violations
-fn generate_compliance_output_filename(input: &Path, compliance_result: &ComplianceResult) -> String {
+fn generate_compliance_output_filename(
+    input: &Path,
+    compliance_result: &ComplianceResult,
+) -> String {
     let stem = input.file_stem().unwrap().to_str().unwrap();
     let ext = input.extension().unwrap_or_default().to_str().unwrap();
-    
+
     let mut suffix = String::from(".compliant");
-    
+
     // Add specific violation indicators
-    if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::Resolution) {
+    if compliance_result
+        .violations
+        .iter()
+        .any(|v| v.category == ViolationCategory::Resolution)
+    {
         suffix.push_str(".scaled");
     }
-    if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::VideoCodec) {
+    if compliance_result
+        .violations
+        .iter()
+        .any(|v| v.category == ViolationCategory::VideoCodec)
+    {
         suffix.push_str(".h264");
     }
-    if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::Audio || v.category == ViolationCategory::AudioCodec) {
+    if compliance_result.violations.iter().any(|v| {
+        v.category == ViolationCategory::Audio || v.category == ViolationCategory::AudioCodec
+    }) {
         suffix.push_str(".aac");
     }
-    if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR) {
+    if compliance_result.violations.iter().any(|v| {
+        v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR
+    }) {
         suffix.push_str(".rec709");
     }
-    
-    format!("{}{}.{}", stem, suffix, if ext.is_empty() { "mp4" } else { ext })
+
+    format!(
+        "{}{}.{}",
+        stem,
+        suffix,
+        if ext.is_empty() { "mp4" } else { ext }
+    )
 }
 
 /// Determine if hardware decoding should be used
 fn should_use_hw_decode(compliance_result: &ComplianceResult) -> bool {
     // Use hardware decode for large files or when significant processing is needed
-    compliance_result.violations.len() > 2 || 
-    compliance_result.violations.iter().any(|v| 
-        v.category == ViolationCategory::Resolution || v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR
-    )
+    compliance_result.violations.len() > 2
+        || compliance_result.violations.iter().any(|v| {
+            v.category == ViolationCategory::Resolution
+                || v.category == ViolationCategory::ColorSpace
+                || v.category == ViolationCategory::HDR
+        })
 }
 
 /// Generate video encoding arguments based on compliance violations
 fn generate_video_fixes(compliance_result: &ComplianceResult) -> Vec<String> {
     let mut args = Vec::new();
-    
+
     // Check if codec fixing is needed
-    let needs_codec_fix = compliance_result.violations.iter()
+    let needs_codec_fix = compliance_result
+        .violations
+        .iter()
         .any(|v| v.category == ViolationCategory::VideoCodec);
-    
+
     // Check if resolution fixing is needed
-    let needs_resolution_fix = compliance_result.violations.iter()
+    let needs_resolution_fix = compliance_result
+        .violations
+        .iter()
         .any(|v| v.category == ViolationCategory::Resolution);
-        
+
     // Check if quality fixes are needed
-    let needs_quality_fix = compliance_result.violations.iter()
-        .any(|v| v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR);
-    
+    let needs_quality_fix = compliance_result.violations.iter().any(|v| {
+        v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR
+    });
+
     if needs_codec_fix || needs_resolution_fix || needs_quality_fix {
         // Use H.264 NVENC with high quality settings
         args.extend([
-            "-c:v".to_string(), 
+            "-c:v".to_string(),
             "h264_nvenc".to_string(),
             "-preset".to_string(),
             "p7".to_string(), // Highest quality preset
@@ -856,7 +959,7 @@ fn generate_video_fixes(compliance_result: &ComplianceResult) -> Vec<String> {
             "-pix_fmt".to_string(),
             "yuv420p".to_string(),
         ]);
-        
+
         // Add resolution scaling if needed
         if needs_resolution_fix {
             // Find target resolution from violations
@@ -865,35 +968,39 @@ fn generate_video_fixes(compliance_result: &ComplianceResult) -> Vec<String> {
                 args.extend(["-vf".to_string(), format!("scale={}", res)]);
             }
         }
-        
+
         // Add color space conversion if needed
         if needs_quality_fix {
             args.extend([
-                "-colorspace".to_string(), "bt709".to_string(),
-                "-color_primaries".to_string(), "bt709".to_string(),
-                "-color_trc".to_string(), "bt709".to_string(),
+                "-colorspace".to_string(),
+                "bt709".to_string(),
+                "-color_primaries".to_string(),
+                "bt709".to_string(),
+                "-color_trc".to_string(),
+                "bt709".to_string(),
             ]);
         }
     } else {
         // No video fixes needed, copy stream
         args.extend(["-c:v".to_string(), "copy".to_string()]);
     }
-    
+
     args
 }
 
 /// Generate audio encoding arguments based on compliance violations
 fn generate_audio_fixes(compliance_result: &ComplianceResult) -> Vec<String> {
     let mut args = Vec::new();
-    
-    let needs_audio_fix = compliance_result.violations.iter()
-        .any(|v| v.category == ViolationCategory::Audio || v.category == ViolationCategory::AudioCodec);
-    
+
+    let needs_audio_fix = compliance_result.violations.iter().any(|v| {
+        v.category == ViolationCategory::Audio || v.category == ViolationCategory::AudioCodec
+    });
+
     if needs_audio_fix {
         args.extend([
             "-c:a".to_string(),
             "aac".to_string(),
-            "-b:a".to_string(), 
+            "-b:a".to_string(),
             "320k".to_string(),
             "-ar".to_string(),
             "48000".to_string(), // 48kHz sample rate
@@ -904,7 +1011,7 @@ fn generate_audio_fixes(compliance_result: &ComplianceResult) -> Vec<String> {
         // No audio fixes needed, copy stream
         args.extend(["-c:a".to_string(), "copy".to_string()]);
     }
-    
+
     args
 }
 
@@ -921,25 +1028,28 @@ fn determine_target_resolution(compliance_result: &ComplianceResult) -> Option<S
             }
         }
     }
-    
+
     // Default to 1080p if no specific recommendation
     Some("1920:1080".to_string())
 }
 
 /// Execute compliance conversion with progress tracking
-fn execute_compliance_conversion(args: &[String], compliance_result: &ComplianceResult) -> Result<(), VideoError> {
+fn execute_compliance_conversion(
+    args: &[String],
+    compliance_result: &ComplianceResult,
+) -> Result<(), VideoError> {
     println!("\n{}", "🔄 Starting compliance conversion...".bright_blue());
-    
+
     // Show what will be fixed
     for violation in &compliance_result.violations {
         let icon = match violation.severity {
             ViolationSeverity::Critical => "🔴",
-            ViolationSeverity::Warning => "🟡", 
+            ViolationSeverity::Warning => "🟡",
             ViolationSeverity::Info => "🔵",
         };
         println!("{} Fixing: {}", icon, violation.description);
     }
-    
+
     let mut child = Command::new("ffmpeg")
         .args(args)
         .stdout(Stdio::piped())
@@ -947,16 +1057,21 @@ fn execute_compliance_conversion(args: &[String], compliance_result: &Compliance
         .spawn()?;
 
     let status = child.wait()?;
-    
+
     if status.success() {
-        println!("{}", "✅ Compliance conversion completed successfully!".green().bold());
+        println!(
+            "{}",
+            "✅ Compliance conversion completed successfully!"
+                .green()
+                .bold()
+        );
     } else {
         return Err(VideoError::FFmpeg(format!(
-            "Compliance conversion failed with exit code: {:?}", 
+            "Compliance conversion failed with exit code: {:?}",
             status.code()
         )));
     }
-    
+
     Ok(())
 }
 
@@ -973,36 +1088,38 @@ pub enum ContentType {
 /// Analyze video content to determine optimal processing approach
 pub fn detect_content_type(metadata: &VideoMetadata, path: &Path) -> ContentType {
     let filename = path.file_name().unwrap().to_str().unwrap().to_lowercase();
-    
+
     // Filename-based heuristics
-    if filename.contains("screen") || filename.contains("capture") || filename.contains("recording") {
+    if filename.contains("screen") || filename.contains("capture") || filename.contains("recording")
+    {
         return ContentType::ScreenCapture;
     }
-    
-    if filename.contains("presentation") || filename.contains("slide") || filename.contains("demo") {
+
+    if filename.contains("presentation") || filename.contains("slide") || filename.contains("demo")
+    {
         return ContentType::Presentation;
     }
-    
+
     if filename.contains("cartoon") || filename.contains("animated") || filename.contains("anime") {
         return ContentType::Animation;
     }
-    
+
     // Metadata-based analysis
     // High framerate usually indicates live action
     if metadata.fps > 50.0 {
         return ContentType::LiveAction;
     }
-    
+
     // Very low framerates suggest screen capture or presentations
     if metadata.fps < 20.0 {
         return ContentType::ScreenCapture;
     }
-    
+
     // Resolution-based heuristics
     if metadata.resolution.contains("1920x1080") && metadata.fps >= 24.0 && metadata.fps <= 30.0 {
         return ContentType::LiveAction;
     }
-    
+
     // Default to screen capture for most content
     ContentType::ScreenCapture
 }
@@ -1057,64 +1174,72 @@ pub fn fix_video_compliance_optimized(
     compliance_result: &ComplianceResult,
     metadata: &VideoMetadata,
 ) -> Result<PathBuf, VideoError> {
-    info!("Starting content-aware compliance fixing for: {}", input.display());
-    
+    info!(
+        "Starting content-aware compliance fixing for: {}",
+        input.display()
+    );
+
     // Detect content type for optimization
     let content_type = detect_content_type(metadata, input);
     info!("Detected content type: {:?}", content_type);
-    
+
     // Generate output filename with content type indicator
-    let output_filename = generate_optimized_output_filename(input, compliance_result, &content_type);
+    let output_filename =
+        generate_optimized_output_filename(input, compliance_result, &content_type);
     let output_path = output_dir.join(&output_filename);
-    
-    println!("\n{}", "🧠 Content-Aware Compliance Fixing".bright_blue().bold());
+
+    println!(
+        "\n{}",
+        "🧠 Content-Aware Compliance Fixing".bright_blue().bold()
+    );
     println!("Input:        {}", input.display());
     println!("Output:       {}", output_path.display());
     println!("Content Type: {:?}", content_type);
     println!("Violations:   {}", compliance_result.violations.len());
-    
+
     // Build optimized FFmpeg arguments
     let mut args = vec!["-i".to_string(), input.to_str().unwrap().to_string()];
-    
+
     // Hardware acceleration settings
     if should_use_hw_decode(compliance_result) {
         args.extend(["-hwaccel".to_string(), "cuda".to_string()]);
     }
-    
+
     // Content-aware video encoding
     let video_fixes = generate_optimized_video_fixes(compliance_result, &content_type, metadata);
     args.extend(video_fixes);
-    
+
     // Audio fixes
     let audio_fixes = generate_audio_fixes(compliance_result);
     args.extend(audio_fixes);
-    
+
     // Optimization flags
     args.extend([
-        "-movflags".to_string(), "+faststart".to_string(),
-        "-y".to_string(), 
-        output_path.to_str().unwrap().to_string()
+        "-movflags".to_string(),
+        "+faststart".to_string(),
+        "-y".to_string(),
+        output_path.to_str().unwrap().to_string(),
     ]);
-    
+
     println!("Optimized command: ffmpeg {}", args.join(" "));
-    
+
     // Execute with progress tracking
     execute_compliance_conversion(&args, compliance_result)?;
-    
+
     Ok(output_path)
 }
 
 /// Generate optimized output filename including content type
 fn generate_optimized_output_filename(
-    input: &Path, 
-    compliance_result: &ComplianceResult, 
-    content_type: &ContentType
+    input: &Path,
+    compliance_result: &ComplianceResult,
+    content_type: &ContentType,
 ) -> String {
     let stem = input.file_stem().unwrap().to_str().unwrap();
     let ext = input.extension().unwrap_or_default().to_str().unwrap();
-    
+
     let mut suffix = String::from(".compliant");
-    
+
     // Add content type indicator
     match content_type {
         ContentType::ScreenCapture => suffix.push_str(".screen"),
@@ -1123,29 +1248,46 @@ fn generate_optimized_output_filename(
         ContentType::Presentation => suffix.push_str(".present"),
         ContentType::Unknown => suffix.push_str(".auto"),
     }
-    
+
     // Add violation indicators
-    if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::Resolution) {
+    if compliance_result
+        .violations
+        .iter()
+        .any(|v| v.category == ViolationCategory::Resolution)
+    {
         suffix.push_str(".scaled");
     }
-    if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::VideoCodec) {
+    if compliance_result
+        .violations
+        .iter()
+        .any(|v| v.category == ViolationCategory::VideoCodec)
+    {
         suffix.push_str(".h264");
     }
-    
-    format!("{}{}.{}", stem, suffix, if ext.is_empty() { "mp4" } else { ext })
+
+    format!(
+        "{}{}.{}",
+        stem,
+        suffix,
+        if ext.is_empty() { "mp4" } else { ext }
+    )
 }
 
 /// Generate content-optimized video encoding arguments
 fn generate_optimized_video_fixes(
     compliance_result: &ComplianceResult,
     content_type: &ContentType,
-    metadata: &VideoMetadata,
+    _metadata: &VideoMetadata,
 ) -> Vec<String> {
     let mut args = Vec::new();
-    
-    let needs_video_fix = compliance_result.violations.iter()
-        .any(|v| v.category == ViolationCategory::VideoCodec || v.category == ViolationCategory::Resolution || v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR);
-    
+
+    let needs_video_fix = compliance_result.violations.iter().any(|v| {
+        v.category == ViolationCategory::VideoCodec
+            || v.category == ViolationCategory::Resolution
+            || v.category == ViolationCategory::ColorSpace
+            || v.category == ViolationCategory::HDR
+    });
+
     if needs_video_fix {
         // Base H.264 NVENC settings
         args.extend([
@@ -1156,63 +1298,85 @@ fn generate_optimized_video_fixes(
             "-pix_fmt".to_string(),
             "yuv420p".to_string(),
         ]);
-        
+
         // Content-specific optimizations
         match content_type {
             ContentType::ScreenCapture | ContentType::Presentation => {
                 // Screen capture: focus on sharpness and detail
                 args.extend([
-                    "-preset".to_string(), "p7".to_string(),  // Highest quality
-                    "-cq".to_string(), "15".to_string(),      // Very high quality
-                    "-temporal-aq".to_string(), "1".to_string(),
-                    "-rc-lookahead".to_string(), "32".to_string(),
+                    "-preset".to_string(),
+                    "p7".to_string(), // Highest quality
+                    "-cq".to_string(),
+                    "15".to_string(), // Very high quality
+                    "-temporal-aq".to_string(),
+                    "1".to_string(),
+                    "-rc-lookahead".to_string(),
+                    "32".to_string(),
                 ]);
             }
             ContentType::LiveAction => {
-                // Live action: balanced quality and efficiency  
+                // Live action: balanced quality and efficiency
                 args.extend([
-                    "-preset".to_string(), "p5".to_string(),  // Balanced preset
-                    "-cq".to_string(), "18".to_string(),      // High quality
-                    "-spatial-aq".to_string(), "1".to_string(),
-                    "-temporal-aq".to_string(), "1".to_string(),
+                    "-preset".to_string(),
+                    "p5".to_string(), // Balanced preset
+                    "-cq".to_string(),
+                    "18".to_string(), // High quality
+                    "-spatial-aq".to_string(),
+                    "1".to_string(),
+                    "-temporal-aq".to_string(),
+                    "1".to_string(),
                 ]);
             }
             ContentType::Animation => {
                 // Animation: preserve flat colors and sharp edges
                 args.extend([
-                    "-preset".to_string(), "p6".to_string(),
-                    "-cq".to_string(), "16".to_string(),
-                    "-aq-mode".to_string(), "3".to_string(),  // Temporal AQ
+                    "-preset".to_string(),
+                    "p6".to_string(),
+                    "-cq".to_string(),
+                    "16".to_string(),
+                    "-aq-mode".to_string(),
+                    "3".to_string(), // Temporal AQ
                 ]);
             }
             ContentType::Unknown => {
                 // Safe defaults
                 args.extend([
-                    "-preset".to_string(), "p6".to_string(),
-                    "-cq".to_string(), "18".to_string(),
+                    "-preset".to_string(),
+                    "p6".to_string(),
+                    "-cq".to_string(),
+                    "18".to_string(),
                 ]);
             }
         }
-        
+
         // Add resolution scaling if needed
-        if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::Resolution) {
+        if compliance_result
+            .violations
+            .iter()
+            .any(|v| v.category == ViolationCategory::Resolution)
+        {
             if let Some(target_res) = determine_target_resolution(compliance_result) {
                 args.extend(["-vf".to_string(), format!("scale={}", target_res)]);
             }
         }
-        
+
         // Add color space conversion if needed
-        if compliance_result.violations.iter().any(|v| v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR) {
+        if compliance_result.violations.iter().any(|v| {
+            v.category == ViolationCategory::ColorSpace || v.category == ViolationCategory::HDR
+        }) {
             args.extend([
-                "-colorspace".to_string(), "bt709".to_string(),
-                "-color_primaries".to_string(), "bt709".to_string(),
-                "-color_trc".to_string(), "bt709".to_string(),
+                "-colorspace".to_string(),
+                "bt709".to_string(),
+                "-color_primaries".to_string(),
+                "bt709".to_string(),
+                "-color_trc".to_string(),
+                "bt709".to_string(),
             ]);
         }
     } else {
         args.extend(["-c:v".to_string(), "copy".to_string()]);
     }
-    
+
     args
 }
 
@@ -1235,10 +1399,14 @@ impl BatchProcessor {
             skipped_files: Vec::new(),
         }
     }
-    
-    pub fn process_file_result(&mut self, path: PathBuf, result: Result<Option<PathBuf>, VideoError>) {
+
+    pub fn process_file_result(
+        &mut self,
+        path: PathBuf,
+        result: Result<Option<PathBuf>, VideoError>,
+    ) {
         self.processed_files += 1;
-        
+
         match result {
             Ok(Some(fixed_path)) => {
                 self.fixed_files.push(fixed_path);
@@ -1251,43 +1419,49 @@ impl BatchProcessor {
             }
         }
     }
-    
+
     pub fn display_final_report(&self) {
         println!("\n{}", "📊 Batch Processing Report".bright_green().bold());
         println!("{}", "=".repeat(65).bright_green());
-        
+
         println!("📁 Total Files: {}", self.total_files.to_string().bold());
-        println!("✅ Files Fixed: {} ({:.1}%)", 
+        println!(
+            "✅ Files Fixed: {} ({:.1}%)",
             self.fixed_files.len().to_string().green().bold(),
             (self.fixed_files.len() as f64 / self.total_files as f64) * 100.0
         );
-        println!("⏭️  Files Skipped: {} ({:.1}%)", 
+        println!(
+            "⏭️  Files Skipped: {} ({:.1}%)",
             self.skipped_files.len().to_string().blue().bold(),
             (self.skipped_files.len() as f64 / self.total_files as f64) * 100.0
         );
-        
+
         if !self.failed_files.is_empty() {
-            println!("❌ Files Failed: {} ({:.1}%)", 
+            println!(
+                "❌ Files Failed: {} ({:.1}%)",
                 self.failed_files.len().to_string().red().bold(),
                 (self.failed_files.len() as f64 / self.total_files as f64) * 100.0
             );
-            
+
             println!("\n{}", "❌ Failed Files:".red().bold());
             for (path, error) in &self.failed_files {
                 println!("  {} - {}", path.display().to_string().red(), error);
             }
         }
-        
+
         if !self.fixed_files.is_empty() {
             println!("\n{}", "✅ Successfully Fixed Files:".green().bold());
             for path in self.fixed_files.iter().take(5) {
                 println!("  {}", path.display().to_string().green());
             }
             if self.fixed_files.len() > 5 {
-                println!("  ... and {} more", (self.fixed_files.len() - 5).to_string().green());
+                println!(
+                    "  ... and {} more",
+                    (self.fixed_files.len() - 5).to_string().green()
+                );
             }
         }
-        
+
         println!("{}", "=".repeat(65).bright_green());
     }
 }
@@ -1302,27 +1476,28 @@ pub fn process_single_file_batch(
     if verbose {
         println!("📁 Processing: {}", path.display());
     }
-    
+
     // Analyze the video
     let metadata = analyze_video(path)?;
-    
+
     // Check compliance
     let compliance_result = compliance_engine.analyze_compliance(&metadata);
-    
+
     if compliance_result.is_compliant {
         if verbose {
             println!("✅ Already compliant: {}", path.display());
         }
         return Ok(None); // File is already compliant
     }
-    
+
     // Fix the non-compliant file
-    let fixed_path = fix_video_compliance_optimized(path, output_dir, &compliance_result, &metadata)?;
-    
+    let fixed_path =
+        fix_video_compliance_optimized(path, output_dir, &compliance_result, &metadata)?;
+
     if verbose {
         println!("✅ Fixed: {} -> {}", path.display(), fixed_path.display());
     }
-    
+
     Ok(Some(fixed_path))
 }
 
@@ -1401,7 +1576,7 @@ pub fn process_directory(
             "Runtime:".blue(),
             format_duration(metadata.duration)
         );
-        
+
         if verbose {
             println!("  {} {}", "Codec:".blue(), metadata.codec);
             println!("  {} {}", "Resolution:".blue(), metadata.resolution);
@@ -1440,10 +1615,18 @@ pub fn process_directory(
                 if let Some(ref result) = compliance_result {
                     if !result.is_compliant {
                         // Use content-aware intelligent compliance fixing
-                        let fixed_path = fix_video_compliance_optimized(&path, h264_dir, result, &metadata)?;
-                        println!("{} Fixed file saved: {}", "✅".green(), fixed_path.display());
+                        let fixed_path =
+                            fix_video_compliance_optimized(&path, h264_dir, result, &metadata)?;
+                        println!(
+                            "{} Fixed file saved: {}",
+                            "✅".green(),
+                            fixed_path.display()
+                        );
                     } else {
-                        println!("{} File is already compliant, no fixing needed", "✅".green());
+                        println!(
+                            "{} File is already compliant, no fixing needed",
+                            "✅".green()
+                        );
                     }
                 }
             } else {
@@ -1485,8 +1668,11 @@ impl ComplianceSummary {
 
     pub fn add_result(&mut self, result: &ComplianceResult, filename: &str) {
         self.total_files += 1;
-        self.average_score = (self.average_score * (self.total_files - 1) as f64 + result.score as f64) / self.total_files as f64;
-        self.files_by_score.push((filename.to_string(), result.score));
+        self.average_score = (self.average_score * (self.total_files - 1) as f64
+            + result.score as f64)
+            / self.total_files as f64;
+        self.files_by_score
+            .push((filename.to_string(), result.score));
 
         if result.is_compliant {
             self.compliant_files += 1;
@@ -1506,34 +1692,51 @@ impl ComplianceSummary {
     pub fn display(&self) {
         println!("\n{}", "📊 Compliance Summary".bright_green().bold());
         println!("{}", "=".repeat(60).bright_green());
-        
+
         let compliance_rate = if self.total_files > 0 {
             (self.compliant_files as f64 / self.total_files as f64) * 100.0
         } else {
             0.0
         };
 
-        println!("📁 Total Files Analyzed: {}", self.total_files.to_string().bold());
-        println!("✅ Compliant Files: {} ({:.1}%)", 
+        println!(
+            "📁 Total Files Analyzed: {}",
+            self.total_files.to_string().bold()
+        );
+        println!(
+            "✅ Compliant Files: {} ({:.1}%)",
             self.compliant_files.to_string().green().bold(),
             compliance_rate
         );
-        println!("❌ Non-Compliant Files: {} ({:.1}%)", 
+        println!(
+            "❌ Non-Compliant Files: {} ({:.1}%)",
             self.non_compliant_files.to_string().red().bold(),
             100.0 - compliance_rate
         );
-        println!("📊 Average Compliance Score: {:.1}/100", self.average_score.to_string().bold());
+        println!(
+            "📊 Average Compliance Score: {:.1}/100",
+            self.average_score.to_string().bold()
+        );
 
         if self.critical_violations > 0 || self.warning_violations > 0 || self.info_violations > 0 {
             println!("\n{}", "🚨 Violation Breakdown:".yellow().bold());
             if self.critical_violations > 0 {
-                println!("🔴 Critical: {}", self.critical_violations.to_string().red().bold());
+                println!(
+                    "🔴 Critical: {}",
+                    self.critical_violations.to_string().red().bold()
+                );
             }
             if self.warning_violations > 0 {
-                println!("🟡 Warnings: {}", self.warning_violations.to_string().yellow().bold());
+                println!(
+                    "🟡 Warnings: {}",
+                    self.warning_violations.to_string().yellow().bold()
+                );
             }
             if self.info_violations > 0 {
-                println!("🔵 Info: {}", self.info_violations.to_string().blue().bold());
+                println!(
+                    "🔵 Info: {}",
+                    self.info_violations.to_string().blue().bold()
+                );
             }
         }
 
@@ -1541,13 +1744,20 @@ impl ComplianceSummary {
         if self.files_by_score.len() > 1 {
             let mut sorted_files = self.files_by_score.clone();
             sorted_files.sort_by_key(|(_, score)| *score);
-            
+
             println!("\n{}", "📉 Files Needing Attention:".bright_yellow().bold());
             for (filename, score) in sorted_files.iter().take(3) {
                 if *score < 100 {
-                    let score_color = if *score < 60 { "red" } else if *score < 80 { "yellow" } else { "blue" };
-                    println!("  {} - Score: {}/100", 
-                        filename, 
+                    let score_color = if *score < 60 {
+                        "red"
+                    } else if *score < 80 {
+                        "yellow"
+                    } else {
+                        "blue"
+                    };
+                    println!(
+                        "  {} - Score: {}/100",
+                        filename,
                         score.to_string().color(score_color).bold()
                     );
                 }
@@ -2027,74 +2237,113 @@ mod tests {
     #[test]
     fn test_content_standards_loading() {
         let standards = ContentStandards::load_default().unwrap();
-        
+
         // Test video standards
-        assert!(standards.video.preferred_resolutions.contains(&"1920x1080".to_string()));
-        assert!(standards.video.preferred_resolutions.contains(&"1280x720".to_string()));
-        assert!(standards.video.preferred_codecs.contains(&"h264".to_string()));
-        assert!(standards.video.unsupported_containers.contains(&"mkv".to_string()));
-        
+        assert!(standards
+            .video
+            .preferred_resolutions
+            .contains(&"1920x1080".to_string()));
+        assert!(standards
+            .video
+            .preferred_resolutions
+            .contains(&"1280x720".to_string()));
+        assert!(standards
+            .video
+            .preferred_codecs
+            .contains(&"h264".to_string()));
+        assert!(standards
+            .video
+            .unsupported_containers
+            .contains(&"mkv".to_string()));
+
         // Test audio standards
-        assert!(standards.audio.preferred_codecs.contains(&"pcm".to_string()));
-        assert!(standards.audio.acceptable_codecs.contains(&"aac".to_string()));
-        
+        assert!(standards
+            .audio
+            .preferred_codecs
+            .contains(&"pcm".to_string()));
+        assert!(standards
+            .audio
+            .acceptable_codecs
+            .contains(&"aac".to_string()));
+
         // Test quality standards
-        assert!(standards.quality.color_spaces.contains(&"rec709".to_string()));
-        assert!(standards.quality.hdr_restrictions.contains(&"hdr10".to_string()));
+        assert!(standards
+            .quality
+            .color_spaces
+            .contains(&"rec709".to_string()));
+        assert!(standards
+            .quality
+            .hdr_restrictions
+            .contains(&"hdr10".to_string()));
     }
 
     #[test]
     fn test_compliance_engine_creation() {
         let engine = ComplianceEngine::new();
         assert!(engine.is_ok());
-        
+
         let engine = engine.unwrap();
         let standards = engine.get_standards();
-        assert!(standards.video.preferred_codecs.contains(&"h264".to_string()));
+        assert!(standards
+            .video
+            .preferred_codecs
+            .contains(&"h264".to_string()));
     }
 
     #[test]
     fn test_compliance_analysis_compliant_file() {
         let engine = ComplianceEngine::new().unwrap();
         let metadata = create_test_metadata(); // h264, 1920x1080, aac, mp4, rec709 - should be compliant
-        
+
         let result = engine.analyze_compliance(&metadata);
         assert!(result.is_compliant);
         assert!(result.score >= 90); // Should have high score for compliant file
-        assert!(result.violations.iter().all(|v| matches!(v.severity, ViolationSeverity::Info)));
+        assert!(result
+            .violations
+            .iter()
+            .all(|v| matches!(v.severity, ViolationSeverity::Info)));
     }
 
     #[test]
     fn test_compliance_analysis_non_compliant_file() {
         let engine = ComplianceEngine::new().unwrap();
         let mut metadata = create_test_metadata();
-        
+
         // Make it non-compliant
         metadata.codec = "mpeg4".to_string(); // Not preferred
         metadata.container = "mkv".to_string(); // Unsupported
         metadata.color_space = "bt2020".to_string(); // Unsupported HDR
-        
+
         let result = engine.analyze_compliance(&metadata);
         assert!(!result.is_compliant);
         assert!(result.score < 90); // Should have low score
-        assert!(result.violations.len() > 0);
-        assert!(result.recommendations.len() > 0);
-        
+        assert!(!result.violations.is_empty());
+        assert!(!result.recommendations.is_empty());
+
         // Check for specific violations
-        assert!(result.violations.iter().any(|v| matches!(v.category, ViolationCategory::VideoCodec)));
-        assert!(result.violations.iter().any(|v| matches!(v.category, ViolationCategory::Container)));
-        assert!(result.violations.iter().any(|v| matches!(v.category, ViolationCategory::HDR)));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.category, ViolationCategory::VideoCodec)));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.category, ViolationCategory::Container)));
+        assert!(result
+            .violations
+            .iter()
+            .any(|v| matches!(v.category, ViolationCategory::HDR)));
     }
 
     #[test]
     fn test_compliance_summary() {
         let mut summary = ComplianceSummary::new();
-        
+
         // Test initial state
         assert_eq!(summary.total_files, 0);
         assert_eq!(summary.compliant_files, 0);
         assert_eq!(summary.non_compliant_files, 0);
-        
+
         // Add compliant result
         let compliant_result = ComplianceResult {
             is_compliant: true,
@@ -2103,35 +2352,33 @@ mod tests {
             recommendations: vec![],
         };
         summary.add_result(&compliant_result, "test1.mp4");
-        
+
         assert_eq!(summary.total_files, 1);
         assert_eq!(summary.compliant_files, 1);
         assert_eq!(summary.non_compliant_files, 0);
         assert_eq!(summary.average_score, 100.0);
-        
+
         // Add non-compliant result
         let non_compliant_result = ComplianceResult {
             is_compliant: false,
             score: 60,
-            violations: vec![
-                ComplianceViolation {
-                    severity: ViolationSeverity::Critical,
-                    category: ViolationCategory::VideoCodec,
-                    description: "Test violation".to_string(),
-                    current_value: "mpeg4".to_string(),
-                    expected_value: "h264".to_string(),
-                }
-            ],
+            violations: vec![ComplianceViolation {
+                severity: ViolationSeverity::Critical,
+                category: ViolationCategory::VideoCodec,
+                description: "Test violation".to_string(),
+                current_value: "mpeg4".to_string(),
+                expected_value: "h264".to_string(),
+            }],
             recommendations: vec!["Fix codec".to_string()],
         };
         summary.add_result(&non_compliant_result, "test2.mp4");
-        
+
         assert_eq!(summary.total_files, 2);
         assert_eq!(summary.compliant_files, 1);
         assert_eq!(summary.non_compliant_files, 1);
         assert_eq!(summary.average_score, 80.0); // (100 + 60) / 2
         assert_eq!(summary.critical_violations, 1);
-        
+
         // Test display (shouldn't panic)
         summary.display();
     }
@@ -2145,10 +2392,10 @@ mod tests {
             current_value: "test".to_string(),
             expected_value: "test".to_string(),
         };
-        
+
         assert!(matches!(violation.severity, ViolationSeverity::Critical));
         assert!(matches!(violation.category, ViolationCategory::VideoCodec));
-        
+
         // Test Debug formatting
         let debug_str = format!("{:?}", violation);
         assert!(debug_str.contains("Critical"));
@@ -2160,18 +2407,16 @@ mod tests {
         let result = ComplianceResult {
             is_compliant: false,
             score: 75,
-            violations: vec![
-                ComplianceViolation {
-                    severity: ViolationSeverity::Warning,
-                    category: ViolationCategory::Resolution,
-                    description: "Resolution not preferred".to_string(),
-                    current_value: "1366x768".to_string(),
-                    expected_value: "1920x1080".to_string(),
-                }
-            ],
+            violations: vec![ComplianceViolation {
+                severity: ViolationSeverity::Warning,
+                category: ViolationCategory::Resolution,
+                description: "Resolution not preferred".to_string(),
+                current_value: "1366x768".to_string(),
+                expected_value: "1920x1080".to_string(),
+            }],
             recommendations: vec!["Resize to 1920x1080".to_string()],
         };
-        
+
         // Test display (shouldn't panic)
         result.display();
     }

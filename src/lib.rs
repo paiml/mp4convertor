@@ -391,6 +391,7 @@ pub struct ProcessingSummary {
     pub total_size: u64,
     pub total_duration: f64,
     pub codecs: HashMap<String, usize>,
+    pub audio_codecs: HashMap<String, usize>,
     pub resolutions: HashMap<String, usize>,
 }
 
@@ -504,6 +505,10 @@ impl ProcessingSummary {
         self.total_duration += metadata.duration;
         *self.codecs.entry(metadata.codec.clone()).or_insert(0) += 1;
         *self
+            .audio_codecs
+            .entry(metadata.audio_codec.clone())
+            .or_insert(0) += 1;
+        *self
             .resolutions
             .entry(metadata.resolution.clone())
             .or_insert(0) += 1;
@@ -529,9 +534,16 @@ impl ProcessingSummary {
         );
 
         if !self.codecs.is_empty() {
-            println!("\n{}", "Codec Distribution:".bright_blue().bold());
+            println!("\n{}", "Video Codec Distribution:".bright_blue().bold());
             for (codec, count) in &self.codecs {
                 println!("  {} {} videos using {}", "•".blue(), count, codec);
+            }
+        }
+
+        if !self.audio_codecs.is_empty() {
+            println!("\n{}", "Audio Codec Distribution:".bright_blue().bold());
+            for (codec, count) in &self.audio_codecs {
+                println!("  {} {} videos using {}", "•".cyan(), count, codec);
             }
         }
 
@@ -600,13 +612,20 @@ pub fn write_conversion_report(dir: &Path, summary: &ProcessingSummary) -> Resul
          Total Videos: {}\n\
          Total Duration: {}\n\
          Total Size: {}\n\n\
-         Codec Distribution:\n{}\n\
+         Video Codec Distribution:\n{}\n\
+         Audio Codec Distribution:\n{}\n\
          Resolution Distribution:\n{}\n",
         summary.total_videos,
         format_duration(summary.total_duration),
         format_size(summary.total_size, DECIMAL),
         summary
             .codecs
+            .iter()
+            .map(|(k, v)| format!("  {} videos using {}", v, k))
+            .collect::<Vec<_>>()
+            .join("\n"),
+        summary
+            .audio_codecs
             .iter()
             .map(|(k, v)| format!("  {} videos using {}", v, k))
             .collect::<Vec<_>>()
@@ -997,11 +1016,10 @@ fn generate_audio_fixes(compliance_result: &ComplianceResult) -> Vec<String> {
     });
 
     if needs_audio_fix {
+        // Use PCM audio (pcm_s24le) as per content delivery spec and DaVinci Resolve compatibility
         args.extend([
             "-c:a".to_string(),
-            "aac".to_string(),
-            "-b:a".to_string(),
-            "320k".to_string(),
+            "pcm_s24le".to_string(), // 24-bit PCM (preferred format)
             "-ar".to_string(),
             "48000".to_string(), // 48kHz sample rate
             "-ac".to_string(),
@@ -1232,45 +1250,11 @@ pub fn fix_video_compliance_optimized(
 /// Generate optimized output filename including content type
 fn generate_optimized_output_filename(
     input: &Path,
-    compliance_result: &ComplianceResult,
-    content_type: &ContentType,
+    _compliance_result: &ComplianceResult,
+    _content_type: &ContentType,
 ) -> String {
-    let stem = input.file_stem().unwrap().to_str().unwrap();
-    let ext = input.extension().unwrap_or_default().to_str().unwrap();
-
-    let mut suffix = String::from(".compliant");
-
-    // Add content type indicator
-    match content_type {
-        ContentType::ScreenCapture => suffix.push_str(".screen"),
-        ContentType::LiveAction => suffix.push_str(".live"),
-        ContentType::Animation => suffix.push_str(".anim"),
-        ContentType::Presentation => suffix.push_str(".present"),
-        ContentType::Unknown => suffix.push_str(".auto"),
-    }
-
-    // Add violation indicators
-    if compliance_result
-        .violations
-        .iter()
-        .any(|v| v.category == ViolationCategory::Resolution)
-    {
-        suffix.push_str(".scaled");
-    }
-    if compliance_result
-        .violations
-        .iter()
-        .any(|v| v.category == ViolationCategory::VideoCodec)
-    {
-        suffix.push_str(".h264");
-    }
-
-    format!(
-        "{}{}.{}",
-        stem,
-        suffix,
-        if ext.is_empty() { "mp4" } else { ext }
-    )
+    // Keep the original filename as requested by user
+    input.file_name().unwrap().to_str().unwrap().to_string()
 }
 
 /// Generate content-optimized video encoding arguments
@@ -2196,6 +2180,7 @@ mod tests {
             total_size: 1000000,
             total_duration: 300.0,
             codecs: HashMap::from([("h264".to_string(), 3), ("hevc".to_string(), 2)]),
+            audio_codecs: HashMap::from([("aac".to_string(), 3), ("pcm_s24le".to_string(), 2)]),
             resolutions: HashMap::from([
                 ("1920x1080".to_string(), 4),
                 ("3840x2160".to_string(), 1),
@@ -2419,5 +2404,213 @@ mod tests {
 
         // Test display (shouldn't panic)
         result.display();
+    }
+
+    #[test]
+    fn test_processing_summary_add_video() {
+        let mut summary = ProcessingSummary::new();
+
+        let metadata = VideoMetadata {
+            codec: "h264".to_string(),
+            resolution: "1920x1080".to_string(),
+            duration: 120.0,
+            bitrate: 5000000,
+            size: 75000000,
+            fps: 30.0,
+            audio_codec: "aac".to_string(),
+            audio_sample_rate: 48000,
+            audio_bitrate: 320000,
+            container: "mp4".to_string(),
+            profile: "high".to_string(),
+            color_space: "bt709".to_string(),
+        };
+
+        summary.add_video(&metadata);
+        assert_eq!(summary.total_videos, 1);
+        assert_eq!(summary.total_size, 75000000);
+        assert_eq!(summary.total_duration, 120.0);
+        assert_eq!(*summary.codecs.get("h264").unwrap(), 1);
+        assert_eq!(*summary.audio_codecs.get("aac").unwrap(), 1);
+        assert_eq!(*summary.resolutions.get("1920x1080").unwrap(), 1);
+    }
+
+    #[test]
+    fn test_processing_summary_display_coverage() {
+        let mut summary = ProcessingSummary::new();
+
+        // Add multiple videos with different codecs
+        let metadata1 = VideoMetadata {
+            codec: "h264".to_string(),
+            resolution: "1920x1080".to_string(),
+            duration: 60.0,
+            bitrate: 5000000,
+            size: 37500000,
+            fps: 30.0,
+            audio_codec: "pcm_s24le".to_string(),
+            audio_sample_rate: 48000,
+            audio_bitrate: 1536000,
+            container: "mp4".to_string(),
+            profile: "high".to_string(),
+            color_space: "bt709".to_string(),
+        };
+
+        let metadata2 = VideoMetadata {
+            codec: "h265".to_string(),
+            resolution: "3840x2160".to_string(),
+            duration: 180.0,
+            bitrate: 15000000,
+            size: 337500000,
+            fps: 60.0,
+            audio_codec: "aac".to_string(),
+            audio_sample_rate: 44100,
+            audio_bitrate: 256000,
+            container: "mp4".to_string(),
+            profile: "main".to_string(),
+            color_space: "bt2020".to_string(),
+        };
+
+        summary.add_video(&metadata1);
+        summary.add_video(&metadata2);
+
+        // Test display function doesn't panic
+        summary.display();
+
+        assert_eq!(summary.total_videos, 2);
+        assert_eq!(*summary.codecs.get("h264").unwrap(), 1);
+        assert_eq!(*summary.codecs.get("h265").unwrap(), 1);
+        assert_eq!(*summary.audio_codecs.get("pcm_s24le").unwrap(), 1);
+        assert_eq!(*summary.audio_codecs.get("aac").unwrap(), 1);
+    }
+
+    #[test]
+    fn test_violation_category_display() {
+        assert_eq!(format!("{:?}", ViolationCategory::Resolution), "Resolution");
+        assert_eq!(format!("{:?}", ViolationCategory::VideoCodec), "VideoCodec");
+        assert_eq!(format!("{:?}", ViolationCategory::AudioCodec), "AudioCodec");
+        assert_eq!(format!("{:?}", ViolationCategory::FrameRate), "FrameRate");
+        assert_eq!(format!("{:?}", ViolationCategory::Audio), "Audio");
+    }
+
+    #[test]
+    fn test_violation_severity_ordering() {
+        // Test that severity levels have correct ordering for priority
+        let critical = ViolationSeverity::Critical as u8;
+        let warning = ViolationSeverity::Warning as u8;
+        let info = ViolationSeverity::Info as u8;
+
+        assert!(critical < warning);
+        assert!(warning < info);
+    }
+
+    #[test]
+    fn test_content_type_detection() {
+        // Test that ContentType enum works properly
+        let content_types = vec![
+            ContentType::ScreenCapture,
+            ContentType::LiveAction,
+            ContentType::Animation,
+            ContentType::Presentation,
+            ContentType::Unknown,
+        ];
+
+        for ct in content_types {
+            match ct {
+                ContentType::ScreenCapture => assert_eq!(format!("{:?}", ct), "ScreenCapture"),
+                ContentType::LiveAction => assert_eq!(format!("{:?}", ct), "LiveAction"),
+                ContentType::Animation => assert_eq!(format!("{:?}", ct), "Animation"),
+                ContentType::Presentation => assert_eq!(format!("{:?}", ct), "Presentation"),
+                ContentType::Unknown => assert_eq!(format!("{:?}", ct), "Unknown"),
+            }
+        }
+    }
+
+    #[test]
+    fn test_compliance_engine_analyze() {
+        let engine = ComplianceEngine::new().expect("Failed to create engine");
+
+        // Test compliant video
+        let good_metadata = VideoMetadata {
+            codec: "h264".to_string(),
+            resolution: "1920x1080".to_string(),
+            duration: 120.0,
+            bitrate: 5000000,
+            size: 75000000,
+            fps: 30.0,
+            audio_codec: "pcm_s24le".to_string(),
+            audio_sample_rate: 48000,
+            audio_bitrate: 320000,
+            container: "mp4".to_string(),
+            profile: "high".to_string(),
+            color_space: "bt709".to_string(),
+        };
+
+        let result = engine.analyze_compliance(&good_metadata);
+        // PCM audio should give high score
+        assert!(result.score >= 85);
+
+        // Test non-compliant video
+        let bad_metadata = VideoMetadata {
+            codec: "vp9".to_string(),
+            resolution: "640x480".to_string(),
+            duration: 120.0,
+            bitrate: 500000,
+            size: 7500000,
+            fps: 15.0,
+            audio_codec: "opus".to_string(),
+            audio_sample_rate: 22050,
+            audio_bitrate: 64000,
+            container: "webm".to_string(),
+            profile: "0".to_string(),
+            color_space: "unknown".to_string(),
+        };
+
+        let bad_result = engine.analyze_compliance(&bad_metadata);
+        assert!(bad_result.score < 50);
+        assert!(!bad_result.is_compliant);
+    }
+
+    #[test]
+    fn test_compliance_scoring() {
+        let engine = ComplianceEngine::new().expect("Failed to create engine");
+
+        // Edge case: very high frame rate
+        let high_fps_metadata = VideoMetadata {
+            codec: "h264".to_string(),
+            resolution: "1920x1080".to_string(),
+            duration: 60.0,
+            bitrate: 8000000,
+            size: 60000000,
+            fps: 120.0,
+            audio_codec: "pcm_s24le".to_string(),
+            audio_sample_rate: 48000,
+            audio_bitrate: 320000,
+            container: "mp4".to_string(),
+            profile: "high".to_string(),
+            color_space: "bt709".to_string(),
+        };
+
+        let fps_result = engine.analyze_compliance(&high_fps_metadata);
+        // 120 fps is very high, should have violations or lower score
+        assert!(fps_result.score < 100 || !fps_result.violations.is_empty());
+    }
+
+    #[test]
+    fn test_analyze_video_error_handling() {
+        use std::path::Path;
+
+        // Test with non-existent file
+        let result = analyze_video(Path::new("/non/existent/file.mp4"));
+        assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_process_empty_directory_with_report() {
+        use tempfile::tempdir;
+
+        let temp = tempdir().unwrap();
+        let result = process_directory(temp.path(), false, false, true);
+
+        // Empty directory should return error
+        assert!(result.is_err());
     }
 }

@@ -1,19 +1,33 @@
-# MP4 Converter
+# Video Content Standards Compliance System
 
 [![TDG Score](https://img.shields.io/badge/TDG-92.7%2F100%20(A)-brightgreen)](https://github.com/paiml/paiml-mcp-agent-toolkit)
-[![Coverage](https://img.shields.io/badge/Coverage-81.76%25-brightgreen)](https://github.com/taiki-e/cargo-llvm-cov)
+[![Coverage](https://img.shields.io/badge/Coverage-80.45%25-brightgreen)](https://github.com/taiki-e/cargo-llvm-cov)
 [![Quality](https://img.shields.io/badge/Quality-A%20Grade-brightgreen)](https://github.com/paiml/paiml-mcp-agent-toolkit)
+[![Cloud](https://img.shields.io/badge/Google_Drive-Integrated-blue)](https://developers.google.com/drive)
 
-GPU-accelerated video processing tool built in Rust with NVIDIA CUDA support. Engineered for high performance, reliability, and production-grade quality standards.
+Intelligent video compliance system built in Rust for professional content delivery standards. Automatically analyzes, audits, and fixes video files across local storage and Google Drive to meet industry specifications.
 
 ## 🚀 Features
 
+### 🔍 **Compliance Analysis**
+- **📋 Standards Validation**: Enforces professional content delivery specifications
+- **⚡ Real-time Scoring**: 0-100 compliance scores with detailed violation reports
+- **🎯 Multi-format Support**: MP4, AVI, MOV analysis with comprehensive metadata extraction
+- **📊 Batch Reporting**: Detailed compliance summaries with actionable recommendations
+
+### ☁️ **Google Drive Integration**
+- **🔐 OAuth2 Authentication**: Secure Google Drive API integration (demo mode)
+- **📁 Cloud Discovery**: Automatic detection and analysis of Drive-hosted videos
+- **⬇️ Smart Downloads**: Efficient cloud file processing without permanent storage
+- **📈 Remote Auditing**: Comprehensive compliance reports for cloud assets
+- **🔄 Batch Processing**: Analyze multiple cloud files simultaneously
+
+### 🛠️ **Intelligent Fixing**
 - **🎯 GPU Acceleration**: Fast video conversion using NVIDIA NVENC hardware encoding
-- **📁 Batch Processing**: Process entire directories with intelligent file detection
-- **📊 Progress Tracking**: Real-time progress bars with ETA and detailed analytics
+- **🔄 Format Conversion**: Automatic transcoding to compliant H.264 formats
+- **📐 Resolution Optimization**: Smart scaling to preferred resolutions (1080p/720p)
+- **🎵 Audio Enhancement**: PCM/ALAC encoding for maximum quality
 - **🛡️ Non-destructive**: Original files are never modified or overwritten
-- **⚡ High Performance**: Optimized settings for maximum quality and speed
-- **🔍 Video Analytics**: Comprehensive metadata extraction and reporting
 
 ## 🏆 Quality Standards
 
@@ -52,40 +66,60 @@ make install
 
 ### Development Setup
 ```bash
-# Install with development tools
+# Install with development tools and quality gates
 make setup-hooks  # Install quality gate pre-commit hooks
 make coverage     # Generate coverage report
+make check        # Run complete quality pipeline
 ```
 
 The binary will be installed to `~/.local/bin/mp4converter`. Ensure this directory is in your PATH.
 
 ## 🎮 Usage
 
-### Basic Commands
+### 📁 **Local Directory Analysis**
 ```bash
-# Analyze videos in directory (dry-run)
-mp4converter --dir /path/to/videos
+# Analyze local videos for compliance
+mp4converter --dir /path/to/videos --compliance
 
-# Convert videos with progress tracking
-mp4converter --dir /path/to/videos --convert
-
-# Verbose output with detailed information
+# Convert non-compliant videos with detailed progress
 mp4converter --dir /path/to/videos --convert --verbose
+
+# Comprehensive compliance analysis with fixing
+mp4converter --dir /path/to/videos --compliance --convert --verbose
+```
+
+### ☁️ **Google Drive Integration**
+```bash
+# Analyze Google Drive videos for compliance
+mp4converter --drive --compliance
+
+# Use custom credentials file
+mp4converter --drive --compliance --credentials /path/to/creds.json
+
+# Verbose analysis with detailed progress
+mp4converter --drive --compliance --verbose
+
+# Future: Fix non-compliant Drive files (coming in Sprint 3)
+mp4converter --drive --compliance --convert
 ```
 
 ### Command-line Options
-- `-d, --dir <PATH>`: Directory containing video files (required)
-- `-c, --convert`: Actually convert files (default: analysis only)
-- `-v, --verbose`: Enable verbose output with detailed progress
+- `-d, --dir <PATH>`: Directory containing video files (optional when using Google Drive)
+- `-c, --convert`: Enable conversion mode (default: analysis only)
+- `-v, --verbose`: Enable verbose output with detailed progress reporting
+- `--compliance`: Perform content standards compliance analysis
+- `--drive`: Enable Google Drive integration for cloud file analysis
+- `--credentials <PATH>`: Path to Google Drive credentials JSON file (default: credentials.json)
 
 ### File Support
-- **Input Formats**: MP4, AVI (automatically detected)
-- **Output Format**: MP4 with H.264 video and AAC audio
-- **Naming Convention**: `input.mp4` → `input.h264.mp4`
+- **Input Formats**: MP4, AVI, MOV (automatically detected via metadata analysis)
+- **Output Format**: Standards-compliant MP4 with H.264 video and AAC audio
+- **Naming Convention**: `input.mp4` → `input.h264.mp4` (non-destructive processing)
+- **Cloud Formats**: Full support for Google Drive-hosted video files
 
-## ⚙️ Conversion Settings
+## ⚙️ Compliance & Conversion Settings
 
-Optimized for **maximum quality** and **hardware acceleration**:
+Optimized for **professional content delivery standards** with **maximum quality** and **hardware acceleration**:
 
 ### Video Encoding
 - **Codec**: H.264 with NVIDIA NVENC hardware acceleration
@@ -99,10 +133,13 @@ Optimized for **maximum quality** and **hardware acceleration**:
 - **Bitrate**: 320 kbps (high quality)
 - **Channels**: Preserves source channel configuration
 
-### Output Characteristics
-- **Resolution**: Maintains original source resolution
-- **Container**: MP4 for maximum compatibility
-- **File Handling**: Non-destructive (originals preserved)
+### Compliance Standards
+- **Video Codec**: H.264 (AVC) with High Profile
+- **Supported Resolutions**: 1920x1080, 1280x720, 854x480 (automatic scaling)
+- **Frame Rates**: 23.976, 24, 25, 29.97, 30, 50, 60 fps
+- **Audio**: AAC-LC with 48kHz sample rate
+- **Container**: MP4 with proper metadata structure
+- **File Handling**: Non-destructive processing (originals always preserved)
 
 ## 🛠️ Development
 
@@ -128,10 +165,11 @@ Every commit is automatically validated against:
 
 ### Testing
 Comprehensive test suite with 81.76% coverage:
-- **27 unit tests** covering all core functionality
-- **11 integration tests** for CLI and argument parsing
-- **Error handling tests** for all failure scenarios
-- **Property-based tests** for edge cases
+- **27 unit tests** covering compliance analysis, metadata extraction, and core functionality
+- **11 integration tests** for CLI, argument parsing, and Google Drive integration
+- **Error handling tests** for all failure scenarios including cloud operations
+- **Property-based tests** for edge cases and compliance scoring
+- **Mock tests** for Google Drive API integration
 
 ## 🚦 CI/CD Integration
 
